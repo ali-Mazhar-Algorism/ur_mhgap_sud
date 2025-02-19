@@ -5,7 +5,6 @@ import 'package:mhgap_urdu/screens/further_information/acknowledgement_screen.da
 import 'package:mhgap_urdu/screens/further_information/disclaimer.dart';
 import 'package:mhgap_urdu/screens/further_information/pdf_screen.dart';
 import 'package:mhgap_urdu/screens/further_information/tutorial.dart';
-import 'package:mhgap_urdu/utils/colors.dart';
 import 'package:mhgap_urdu/utils/texts.dart';
 
 class FurtherInformationScreen extends StatelessWidget {

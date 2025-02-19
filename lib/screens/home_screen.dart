@@ -4,10 +4,14 @@ import 'package:mhgap_urdu/components/base_scaffold.dart';
 import 'package:mhgap_urdu/components/navigation_transition.dart';
 import 'package:mhgap_urdu/components/custom_app_bar.dart';
 import 'package:mhgap_urdu/components/text_components.dart';
-import 'package:mhgap_urdu/screens/further_information/f_information_home.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:mhgap_urdu/utils/colors.dart';
 import 'package:mhgap_urdu/utils/home_screen_list.dart';
 import 'package:mhgap_urdu/utils/texts.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'dart:io';
 
 class HomeScreen extends StatelessWidget {
   final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
@@ -107,6 +111,97 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       Future.delayed(const Duration(milliseconds: 100), () {
         navigateWithSlideTransition(context, widget.screen!);
       });
+    }
+    _checkAndRequestUserInfo();
+  }
+
+  Future<void> _checkAndRequestUserInfo() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? username = prefs.getString('username');
+
+    if (username == null) {
+      _showUsernameDialog();
+    } else {
+      // If username exists, send device info without asking again
+      _sendUserData(username);
+    }
+  }
+
+  void _showUsernameDialog() {
+    TextEditingController _nameController = TextEditingController();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Enter Your Name"),
+          content: TextField(
+            controller: _nameController,
+            decoration: const InputDecoration(hintText: "Your Name"),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                String enteredName = _nameController.text.trim();
+                if (enteredName.isNotEmpty) {
+                  SharedPreferences prefs =
+                      await SharedPreferences.getInstance();
+                  await prefs.setString('username', enteredName);
+
+                  _sendUserData(enteredName);
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text("Submit"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _sendUserData(String username) async {
+    DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+    String deviceModel = "Unknown";
+    String osVersion = "Unknown";
+    String manufacturer = "Unknown";
+
+    if (Platform.isAndroid) {
+      AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
+      deviceModel = androidInfo.model;
+      osVersion = androidInfo.version.release;
+      manufacturer = androidInfo.manufacturer;
+    } else if (Platform.isIOS) {
+      IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
+      deviceModel = iosInfo.utsname.machine;
+      osVersion = iosInfo.systemVersion;
+      manufacturer = "Apple";
+    }
+
+    final userData = {
+      "username": username,
+      "deviceModel": deviceModel,
+      "osVersion": osVersion,
+      "manufacturer": manufacturer,
+      "timestamp": DateTime.now().toIso8601String(),
+    };
+
+    try {
+      const String apiUrl = "https://mhgap-backend.algorism.io/api/save-user";
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(userData),
+      );
+
+      if (response.statusCode == 200) {
+        print("User data saved successfully");
+      } else {
+        print("Failed to save user data: ${response.body}");
+      }
+    } catch (e) {
+      print("Error sending request: $e");
     }
   }
 
